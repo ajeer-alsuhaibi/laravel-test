@@ -1,167 +1,127 @@
 
----
+## Overview
 
-# Product Import & Synchronization
 
-This project provides a **simple and scalable product import system** built with Laravel.
-It supports importing products from **CSV files** and **external APIs**, and is designed to safely handle **large datasets (500k+ rows)** using streaming and chunking.
 
-The system is **idempotent**, **memory-efficient**, and easy to extend.
+This challenge will test your skills in the following areas of PHP development:
 
----
+* PHP's OOP implementation (interfaces and design patterns)
 
-## What This System Does
+* Namespaces, closures/anonymous functions
 
-* Import products from **CSV**
-* Import products from **API**
-* Upsert products by **SKU**
-* Store product names using **translations**
-* Create product **variants** with quantity & availability
-* Handle **product statuses** dynamically
-* Soft-delete products when status = `deleted`
-* Restore products if they reappear
-* Safe to re-run imports multiple times
+* JSON data format
 
----
+* MySQL
 
-## Requirements
+* RESTful API integration
 
-The project is built and tested with the following versions:
+* Efficient workload processing
 
-* **PHP:** `8.2+`
-* **Laravel:** `12.x`
-* **MySQL:** `8.0+`
-* **Composer:** `2.x`
-* **Redis:** optional (required only if queues are enabled)
+* Unit/feature testing
 
-> ⚠️ PHP 8.2 is required due to typed properties, enums, and modern language features.
+* Documentation
 
----
 
-## Installation
 
-### 1️⃣ Clone the Repository
+## Project Description
 
-```bash
-git clone <repository-url>
-cd <project-directory>
+
+You are tasked with improving the code, database structure, and importing process of a product management system. A `products.csv` file is provided, containing a list of products to be imported into a database table. The current **products** table structure is as follows:
+
+
+
+```sql
+CREATE  TABLE `products` (
+`id`  int(11) unsigned NOT NULL AUTO_INCREMENT,
+`name`  varchar(255) DEFAULT  NULL,
+`sku`  varchar(255) DEFAULT  NULL  UNIQUE,
+`status`  varchar(255) DEFAULT  NULL,
+`variations`  text  DEFAULT  NULL,
+`price`  decimal(7,2) DEFAULT  NULL,
+`currency`  varchar(20) DEFAULT  NULL,
+PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 ```
 
----
 
-### 2️⃣ Install PHP Dependencies
 
-```bash
-composer install
-```
+The import process uses a command in the ImportProducts file. Your task is to address the following challenges in order to improve the product management system to tackle these challenges:
 
----
 
-### 3️⃣ Environment Configuration
 
-Copy the example environment file:
+### 1. Refactor the Code!
 
-```bash
-cp .env.example .env
-```
+Restructure the existing code as needed, following best practices for code organization and design patterns. This may include splitting the code into multiple files, validating data, and utilizing framework features.
 
-Update `.env` with your database credentials:
 
-```env
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=your_database
-DB_USERNAME=your_user
-DB_PASSWORD=your_password
-```
 
----
+### 2. Implement Unit and Feature Tests
 
-### 4️⃣ Generate Application Key
 
-```bash
-php artisan key:generate
-```
 
----
+Write unit tests and/or feature tests to ensure the code's correctness and stability. Ensure adequate test coverage for critical functionality.
 
-### 5️⃣ Run Database Migrations
 
-```bash
-php artisan migrate
-```
 
-This will create:
+### 3. Delete Outdated Products
 
-* products
-* product_translations
-* product_variants
-* product_statuses
-* options / option_values (for future extensions)
+Modify the import command to soft delete any products no longer in the file (not in the file or flagged as deleted). Add a hint to the deleted record indicating the product was deleted due to synchronization.
 
----
 
-## Running Imports
 
-### Import from CSV
+### 4: Restructure the Data
 
-```bash
-php artisan import:products csv --path=storage/app/products_500k.csv
-```
+Some products have multiple variations based on options like color and size. These variations are stored without quantity or availability information. Modify the database structure to support adding the quantity and availability for each variation.
 
-### Import from API
 
-```bash
-php artisan import:products api --url=https://example.com/api/products
-```
+  ### 5: Integrate with an External Data Source
 
----
+Extend the service to update product data from a third-party supplier API. The product information endpoint is:
 
-## Import Rules
+**https://5fc7a13cf3c77600165d89a8.mockapi.io/api/v5/products**
 
-* `sku` is **required**
-* `status`
+Develop a solution for a daily synchronization process at 12am.
 
-    * Defaults to `active` if missing
-    * If `deleted` → product is soft deleted
-    * New statuses are **created dynamically**
-* `quantity`
 
-    * Stored on variants
-    * Controls `is_available`
-* `variations`
+### 6: Improve Performance
 
-    * Empty → default variant created
-    * Present → variant SKU generated per variation
 
----
 
-## Performance Notes
+Assume that updating any product triggers multiple events:
 
-* Tested with **500,000+ CSV rows**
-* Uses streaming (`SplFileObject`)
-* No full file loaded into memory
-* Chunked transactions ensure safety
-* Can be safely re-run
+- Email notification to the warehouse about the new quantity
+- Email notifications to customers who requested updates when out-of-stock products become available
+- Requests to a third-party application to update product data
 
----
+>**_You do not need to implement these notifications_**
 
-## Documents
 
-### Software Architecture Document
 
-[https://docs.google.com/document/d/1WtiwRSduMrjxwbm91SEZXgLbggBppFbe_JkCALeHEf4/edit](https://docs.google.com/document/d/1WtiwRSduMrjxwbm91SEZXgLbggBppFbe_JkCALeHEf4/edit)
+However, assume each event takes about 2 seconds per product. Simulate this by pausing the script's execution for 2 seconds before processing the next product and  ***a product will not be persisted in products table until all those events are completed successfully*** . Develop a concept to process the products faster, assuming a few hundred thousand rows (you can test on a batch of 200 records).
 
-### Technical Design Document
+Consider query optimization, parallelization, and caching.
 
-[https://docs.google.com/document/d/1qqho62_VF1jW4stjwEVQeZMXtue7nj-Pua3a9BwVmSc/edit](https://docs.google.com/document/d/1qqho62_VF1jW4stjwEVQeZMXtue7nj-Pua3a9BwVmSc/edit)
 
----
 
-## Notes
+### Bonus: Provide Documentation
 
-* Product names are stored **only** in `product_translations`
-* `products` table contains only technical fields (SKU, status, delete info)
-* Status handling is centralized in `ProductStatusResolver`
-* CSV and API sources are interchangeable via the Strategy pattern
+
+
+Create clear and comprehensive documentation for your code, detailing its functionality, architecture, and usage. Include any necessary setup instructions and provide examples for interacting with the system.
+
+
+
+## **General Hints**
+
+- The final database structure should be based on the latest modifications made during the task steps.
+
+- Employ best coding practices, principles, and design patterns throughout the challenge.
+
+- Ensure the code is easily extendable. For instance, if another third-party API service needs to be integrated in the future, it should be possible to reuse the existing code with minimal updates.
+
+- Be prepared to explain and review your code, justifying your decisions during a potential follow-up discussion.
+
+
+
+***All the best***
